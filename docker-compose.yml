@@ -1,0 +1,60 @@
+# ===================================
+# A股自选股智能分析系统 - Docker Compose
+# ===================================
+#
+# 使用方式:
+#   定时模式: docker compose up -d analyzer
+#   WebUI模式: docker compose up -d server
+#   同时启动: docker compose up -d
+#
+# 环境变量从项目根目录 .env 文件加载
+
+x-common: &common
+  build:
+    context: .
+    dockerfile: docker/Dockerfile
+  restart: unless-stopped
+  env_file:
+    - .env
+  volumes:
+    - ./data:/app/data
+    - ./logs:/app/logs
+    - ./reports:/app/reports
+    - ./.env:/app/.env
+  environment:
+    - TZ=Asia/Shanghai
+    - WEBUI_HOST=0.0.0.0
+  logging:
+    driver: "json-file"
+    options:
+      max-size: "10m"
+      max-file: "3"
+  deploy:
+    resources:
+      limits:
+        memory: 512M
+      reservations:
+        memory: 256M
+
+services:
+  # 定时任务模式
+  analyzer:
+    <<: *common
+    container_name: stock-analyzer
+
+  # WebUI / FastAPI 模式
+  server:
+    <<: *common
+    container_name: stock-server
+    command:
+      [
+        "python",
+        "main.py",
+        "--serve-only",
+        "--host",
+        "0.0.0.0",
+        "--port",
+        "${WEBUI_PORT:-8000}",
+      ]
+    ports:
+      - "${WEBUI_PORT:-8000}:${WEBUI_PORT:-8000}"
